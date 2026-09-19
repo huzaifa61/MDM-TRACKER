@@ -1,12 +1,26 @@
 :root {
   --background: #ffffff;
   --foreground: #171717;
+  --muted: #666666;
+  --border: #e2e2e2;
+  --card-bg: #f7f7f8;
+  --accent: #2563eb;
+  --accent-contrast: #ffffff;
+  --danger: #b91c1c;
+  --ok: #15803d;
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
     --background: #0a0a0a;
     --foreground: #ededed;
+    --muted: #a1a1aa;
+    --border: #2a2a2a;
+    --card-bg: #161616;
+    --accent: #3b82f6;
+    --accent-contrast: #0a0a0a;
+    --danger: #f87171;
+    --ok: #4ade80;
   }
 }
 
@@ -31,12 +45,222 @@ body {
 }
 
 a {
-  color: inherit;
-  text-decoration: none;
+  color: var(--accent);
 }
 
 @media (prefers-color-scheme: dark) {
   html {
     color-scheme: dark;
   }
+}
+
+/* Shared page layout */
+
+.home-page,
+.entry-page,
+.admin-page {
+  max-width: 560px;
+  margin: 0 auto;
+  padding: 32px 20px 64px;
+}
+
+.home-page p,
+.entry-page p {
+  color: var(--muted);
+  margin-top: 8px;
+}
+
+h1 {
+  font-size: 1.5rem;
+  margin-bottom: 4px;
+}
+
+h2 {
+  font-size: 1.15rem;
+}
+
+/* Avatars */
+
+.avatar {
+  border-radius: 50%;
+  object-fit: cover;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.avatar--fallback {
+  background: var(--accent);
+  color: var(--accent-contrast);
+  font-weight: 600;
+}
+
+/* Top 3 leaderboard banner */
+
+.top3-banner {
+  background: var(--card-bg);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 16px;
+  margin-bottom: 24px;
+}
+
+.top3-banner--empty p {
+  margin: 0;
+}
+
+.top3-list {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 12px;
+}
+
+.top3-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.top3-medal {
+  font-size: 1.4rem;
+  width: 28px;
+  text-align: center;
+}
+
+.top3-info {
+  display: flex;
+  flex-direction: column;
+}
+
+.top3-name {
+  font-weight: 600;
+}
+
+.top3-points {
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+
+/* Entry form */
+
+.entry-date {
+  margin-bottom: 20px;
+}
+
+.entry-form {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.task-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-weight: 500;
+}
+
+.task-field--checkbox {
+  flex-direction: row;
+  align-items: center;
+  gap: 10px;
+  font-weight: normal;
+}
+
+.task-field input[type='number'] {
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--background);
+  color: var(--foreground);
+  font-size: 1rem;
+}
+
+.task-field input[type='checkbox'] {
+  width: 18px;
+  height: 18px;
+}
+
+.entry-total {
+  padding: 12px;
+  background: var(--card-bg);
+  border-radius: 8px;
+  text-align: center;
+}
+
+.entry-form button,
+.admin-page button {
+  padding: 12px;
+  border: none;
+  border-radius: 8px;
+  background: var(--accent);
+  color: var(--accent-contrast);
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.entry-form button:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+.entry-status--ok {
+  color: var(--ok);
+}
+
+.entry-status--error {
+  color: var(--danger);
+}
+
+/* Admin */
+
+.admin-page--login form {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  max-width: 280px;
+  margin-top: 24px;
+}
+
+.admin-page--login input {
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--background);
+  color: var(--foreground);
+}
+
+.admin-error {
+  color: var(--danger);
+}
+
+.admin-page {
+  max-width: 720px;
+}
+
+.admin-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 20px;
+  font-size: 0.9rem;
+}
+
+.admin-table th,
+.admin-table td {
+  padding: 8px;
+  border-bottom: 1px solid var(--border);
+  text-align: left;
+}
+
+.admin-table code {
+  font-size: 0.8rem;
+  word-break: break-all;
+}
+
+.admin-table button {
+  padding: 6px 10px;
+  font-size: 0.85rem;
 }

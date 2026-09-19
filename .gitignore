@@ -32,6 +32,11 @@ yarn-error.log*
 
 # env files (can opt-in for committing if needed)
 .env*
+!.env.example
+
+# never commit a downloaded Google service-account key if one ends up in this folder
+*service-account*.json
+*.key.json
 
 # vercel
 .vercel
