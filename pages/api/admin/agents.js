@@ -1,6 +1,7 @@
 import { fetchAllSheetData } from '@/lib/sheets';
 import { generateToken } from '@/lib/tokens';
 import { isAdminRequest } from '@/lib/adminAuth';
+import { computeWeeklyLeaderboard } from '@/lib/leaderboard';
 
 export default async function handler(req, res) {
   if (!isAdminRequest(req)) {
@@ -21,5 +22,7 @@ export default async function handler(req, res) {
     link: `${baseUrl}/entry/${generateToken(a.email)}`,
   }));
 
-  return res.status(200).json({ agents });
+  const performance = computeWeeklyLeaderboard(data.summary, data.agents);
+
+  return res.status(200).json({ agents, performance });
 }

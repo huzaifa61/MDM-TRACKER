@@ -33,7 +33,7 @@ export default async function handler(req, res) {
     return res.status(500).json({ error: 'response_sheet_misconfigured' });
   }
 
-  const timeZone = process.env.APP_TIMEZONE || 'Asia/Dubai';
+  const timeZone = process.env.APP_TIMEZONE || 'America/Edmonton';
   const targetDate = todayInTZ(timeZone);
   const dailyTotal = computeDailyTotal(values, header, tasks);
 

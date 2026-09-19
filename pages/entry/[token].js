@@ -1,12 +1,16 @@
 import { useState } from 'react';
 import Head from 'next/head';
+import Link from 'next/link';
 import { fetchAllSheetData } from '@/lib/sheets';
 import { resolveAgentFromToken, normalizeEmail } from '@/lib/tokens';
 import { computeDailyTotal } from '@/lib/points';
+import { computeWeeklyLeaderboard } from '@/lib/leaderboard';
 import { todayInTZ } from '@/lib/week';
 import { FIXED_RESPONSE_COLUMNS } from '@/lib/sheetSchema';
 import Top3Banner from '@/components/Top3Banner';
 import TaskField from '@/components/TaskField';
+import AgentAvatar from '@/components/AgentAvatar';
+import Toast from '@/components/Toast';
 
 export async function getServerSideProps({ params }) {
   const { token } = params;
@@ -24,7 +28,7 @@ export async function getServerSideProps({ params }) {
     return { props: { error: 'invalid_token' } };
   }
 
-  const timeZone = process.env.APP_TIMEZONE || 'Asia/Dubai';
+  const timeZone = process.env.APP_TIMEZONE || 'America/Edmonton';
   const today = todayInTZ(timeZone);
   const targetEmail = normalizeEmail(agent.email);
   const existing = data.responseRows.find(
@@ -40,34 +44,24 @@ export async function getServerSideProps({ params }) {
     });
   }
 
-  const latestWeek = data.summary.reduce(
-    (max, r) => (!max || r.weekEnded > max ? r.weekEnded : max),
-    null
-  );
-  const top3 = data.summary
-    .filter((r) => r.weekEnded === latestWeek)
-    .sort((a, b) => (a.rank ?? 99) - (b.rank ?? 99))
-    .slice(0, 3)
-    .map((r) => {
-      const match = data.agents.find((a) => normalizeEmail(a.email) === r.agentEmail);
-      return {
-        name: r.agentName,
-        total: r.weeklyTotal,
-        profilePictureLink: match ? match.profilePictureLink : '',
-      };
-    });
+  const { weekEnded, ranked } = computeWeeklyLeaderboard(data.summary, data.agents);
+  const top3 = ranked.slice(0, 3).map((r) => ({
+    name: r.name,
+    total: r.total,
+    profilePictureLink: r.profilePictureLink,
+  }));
 
   const tasks = data.tasks.map((t) => ({ task: t.task, point: t.point, inputType: t.inputType }));
 
   return {
     props: {
-      agent: { name: agent.name, email: agent.email },
+      agent: { name: agent.name, email: agent.email, profilePictureLink: agent.profilePictureLink || '' },
       token,
       tasks,
       todayValues,
       today,
       top3,
-      weekEnded: latestWeek || null,
+      weekEnded: weekEnded || null,
     },
   };
 }
@@ -133,7 +127,13 @@ export default function EntryPage({
         <title>Daily Log — {agent.name}</title>
       </Head>
       <Top3Banner top3={top3} weekEnded={weekEnded} />
-      <h1>Hi {agent.name}, log today&apos;s activity</h1>
+      <Link href={`/entry/${token}/history`} className="entry-profile-link">
+        <AgentAvatar name={agent.name} src={agent.profilePictureLink} size={48} />
+        <span>
+          <span className="entry-profile-name">Hi {agent.name}, log today&apos;s activity</span>
+          <span className="entry-profile-cta">View your history →</span>
+        </span>
+      </Link>
       <p className="entry-date">{today}</p>
       <form onSubmit={handleSubmit} className="entry-form">
         {tasks.map((t) => (
@@ -151,13 +151,13 @@ export default function EntryPage({
         <button type="submit" disabled={status === 'saving'}>
           {status === 'saving' ? 'Saving…' : "Save today's log"}
         </button>
-        {status === 'saved' && <p className="entry-status entry-status--ok">Saved!</p>}
-        {status === 'error' && (
-          <p className="entry-status entry-status--error">
-            Could not save — please try again.
-          </p>
-        )}
       </form>
+      {status === 'saved' && (
+        <Toast message="Saved!" tone="ok" onDone={() => setStatus('idle')} />
+      )}
+      {status === 'error' && (
+        <Toast message="Could not save — please try again." tone="error" onDone={() => setStatus('idle')} />
+      )}
     </main>
   );
 }

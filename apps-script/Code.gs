@@ -19,6 +19,13 @@
  *      sample entry link; compare it against what /admin shows for the same agent to confirm
  *      the token matches before trusting real reminder emails.
  *
+ * Optional - automatic agent onboarding from a signup form: if you have a Google Form with
+ * "Name", "Email", and "Upload Profile Photo" questions, add an "AGENT_FORM_ID" script property
+ * (the form's ID from its edit URL: docs.google.com/forms/d/<THIS_PART>/edit), then re-run
+ * createTriggers(). Every submission then automatically adds/updates an AGENTS row - see the
+ * Agent Signup Form section. Expect a fresh OAuth consent prompt the first time this runs,
+ * since it's the first use of the Drive and Forms services.
+ *
  * To see a real email land without waiting for a real day/week/month to finish, run
  * sendTestDailyEntryReminder(), sendTestDailyEmail(), sendTestWeeklyEmail(), or
  * sendTestMonthlyEmail() - all four use fabricated sample numbers (the reminder uses a real
@@ -72,6 +79,14 @@ function createTriggers() {
 
   ScriptApp.newTrigger('monthlyRollup').timeBased()
     .onMonthDay(1).atHour(7).create();
+
+  var agentFormId = PropertiesService.getScriptProperties().getProperty('AGENT_FORM_ID');
+  if (agentFormId) {
+    ScriptApp.newTrigger('onAgentFormSubmit').forForm(FormApp.openById(agentFormId)).onFormSubmit().create();
+  } else {
+    Logger.log('AGENT_FORM_ID script property not set - skipping the agent-signup form trigger. ' +
+      'Set it (Project Settings > Script Properties) and re-run createTriggers() to turn on automatic onboarding.');
+  }
 
   Logger.log('Triggers installed: ' + ScriptApp.getProjectTriggers().length);
 }
@@ -141,6 +156,11 @@ function runSelfTest() {
     Logger.log('Sample entry link for ' + agents[0].email + ': ' + buildEntryLink_(agents[0].email) +
       ' - compare this against /admin for the same agent to confirm the token matches.');
   }
+
+  var agentFormId = props.getProperty('AGENT_FORM_ID');
+  Logger.log(agentFormId
+    ? 'AGENT_FORM_ID is set (' + agentFormId + ') - automatic agent onboarding is active once createTriggers() has been (re-)run since setting it.'
+    : 'AGENT_FORM_ID is not set - automatic agent onboarding from a signup form is off (this is fine if you are not using one).');
 
   Logger.log('Self-test complete - review any WARNING lines above.');
 }
@@ -404,6 +424,85 @@ function getAgentsList() {
         profilePictureLink: r[2] ? String(r[2]).trim() : '',
       };
     });
+}
+
+// ============================================================
+// Agent Signup Form
+// ============================================================
+
+/**
+ * Automatically adds/updates an AGENTS row whenever someone submits the agent-signup Google
+ * Form (matched by question title, so this survives reordering questions - it just needs a
+ * "Name", "Email", and "Upload Profile Photo" question to exist somewhere in the form).
+ *
+ * One-time setup: Project Settings > Script Properties > add "AGENT_FORM_ID" - the form's ID
+ * from its edit URL, e.g. docs.google.com/forms/d/<THIS_PART>/edit. Then re-run
+ * createTriggers() - it only wires this up if AGENT_FORM_ID is present, and does nothing if
+ * you're not using a signup form at all.
+ *
+ * This is the same "no caching" trick the rest of the app relies on: the Next.js frontend
+ * already re-reads AGENTS fresh on every request, so a newly-added agent gets a working
+ * /entry/<token> link with zero frontend changes - this trigger is the only new moving part.
+ */
+function onAgentFormSubmit(e) {
+  var itemResponses = e.response.getItemResponses();
+  var name = findAnswerByTitle_(itemResponses, 'Name');
+  var email = findAnswerByTitle_(itemResponses, 'Email');
+  var fileIds = findAnswerByTitle_(itemResponses, 'Upload Profile Photo');
+
+  if (!email) {
+    Logger.log('Agent signup form submitted with no answer to "Email" - skipping.');
+    return;
+  }
+
+  var profilePictureLink = (fileIds && fileIds.length > 0) ? makeDriveImagePublicLink_(fileIds[0]) : '';
+  upsertAgent_(email, name || '', profilePictureLink);
+}
+
+function findAnswerByTitle_(itemResponses, title) {
+  for (var i = 0; i < itemResponses.length; i++) {
+    if (itemResponses[i].getItem().getTitle().trim() === title) {
+      return itemResponses[i].getResponse();
+    }
+  }
+  return null;
+}
+
+/** A Drive file-upload answer is a file ID, not a usable image URL - a plain Drive share link
+ * (.../file/d/<id>/view) opens an HTML viewer, not a raw image, so it won't render in an
+ * &lt;img&gt; tag. This makes the file link-viewable and builds a direct-embeddable URL instead. */
+function makeDriveImagePublicLink_(fileId) {
+  try {
+    DriveApp.getFileById(fileId).setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
+  } catch (err) {
+    Logger.log('Could not set sharing on uploaded profile photo ' + fileId + ': ' + err);
+  }
+  return 'https://drive.google.com/uc?export=view&id=' + fileId;
+}
+
+/** Adds a new AGENTS row, or updates name/photo for an existing one matched by email
+ * (case/whitespace insensitive) - so resubmitting the form (e.g. to fix a typo) doesn't create
+ * a duplicate. A resubmission with no new photo keeps the agent's existing photo rather than
+ * blanking it out, since "Upload Profile Photo" isn't a required question. */
+function upsertAgent_(email, name, profilePictureLink) {
+  var sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('AGENTS');
+  var lastRow = sheet.getLastRow();
+  var targetEmail = String(email).trim().toLowerCase();
+
+  if (lastRow >= 2) {
+    var rows = sheet.getRange(2, 1, lastRow - 1, 3).getValues();
+    for (var i = 0; i < rows.length; i++) {
+      if (String(rows[i][0]).trim().toLowerCase() === targetEmail) {
+        var existingLink = rows[i][2] ? String(rows[i][2]).trim() : '';
+        sheet.getRange(i + 2, 2, 1, 2).setValues([[name, profilePictureLink || existingLink]]);
+        Logger.log('Updated existing agent from form submission: ' + email);
+        return;
+      }
+    }
+  }
+
+  sheet.appendRow([email, name, profilePictureLink]);
+  Logger.log('Added new agent from form submission: ' + email);
 }
 
 // ============================================================

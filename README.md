@@ -78,7 +78,7 @@ project dashboard (Settings → Environment Variables) for Production/Preview/De
 | `APP_TOKEN_SECRET` | `openssl rand -base64 48` |
 | `ADMIN_PASSWORD` | Your choice — gates `/admin` |
 | `APP_BASE_URL` | `http://localhost:3000` locally, your Vercel URL in production |
-| `APP_TIMEZONE` | IANA zone, e.g. `Asia/Dubai` — must match the spreadsheet's timezone |
+| `APP_TIMEZONE` | `America/Edmonton` (Calgary's zone) — must match the spreadsheet's timezone |
 
 ### 4. Run locally, then deploy
 
