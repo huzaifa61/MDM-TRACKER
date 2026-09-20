@@ -1,7 +1,12 @@
 import { fetchAllSheetData } from '@/lib/sheets';
 import { generateToken } from '@/lib/tokens';
 import { isAdminRequest } from '@/lib/adminAuth';
-import { computeWeeklyLeaderboard } from '@/lib/leaderboard';
+import {
+  computeWeeklyLeaderboard,
+  computeRangeLeaderboard,
+  currentIsoWeekBounds,
+  currentMonthBounds,
+} from '@/lib/leaderboard';
 
 export default async function handler(req, res) {
   if (!isAdminRequest(req)) {
@@ -22,7 +27,31 @@ export default async function handler(req, res) {
     link: `${baseUrl}/entry/${generateToken(a.email)}`,
   }));
 
-  const performance = computeWeeklyLeaderboard(data.summary, data.agents);
+  const timeZone = process.env.APP_TIMEZONE || 'America/Edmonton';
+  const lastWeek = computeWeeklyLeaderboard(data.summary, data.agents);
 
-  return res.status(200).json({ agents, performance });
+  const thisWeekBounds = currentIsoWeekBounds(timeZone);
+  const thisWeek = {
+    start: thisWeekBounds.start,
+    end: thisWeekBounds.end,
+    ranked: computeRangeLeaderboard(data.responseRows, data.header, data.agents, thisWeekBounds.start, thisWeekBounds.end),
+  };
+
+  const thisMonthBounds = currentMonthBounds(timeZone);
+  const thisMonth = {
+    start: thisMonthBounds.start,
+    end: thisMonthBounds.end,
+    ranked: computeRangeLeaderboard(data.responseRows, data.header, data.agents, thisMonthBounds.start, thisMonthBounds.end),
+  };
+
+  return res.status(200).json({
+    agents,
+    performance: {
+      top3: lastWeek.ranked.slice(0, 3),
+      weekEnded: lastWeek.weekEnded,
+      lastWeek,
+      thisWeek,
+      thisMonth,
+    },
+  });
 }

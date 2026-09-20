@@ -1,9 +1,25 @@
 import { useState, useEffect } from 'react';
 import Head from 'next/head';
 import AgentAvatar from '@/components/AgentAvatar';
+import Top3Banner from '@/components/Top3Banner';
 
 const TIER_LABELS = { top: 'Top performers', mid: 'Mid performers', low: 'Needs improvement' };
 const TIER_ORDER = ['top', 'mid', 'low'];
+
+const DEFAULT_PERFORMANCE = {
+  top3: [],
+  weekEnded: null,
+  lastWeek: { weekEnded: null, ranked: [] },
+  thisWeek: { start: null, end: null, ranked: [] },
+  thisMonth: { start: null, end: null, ranked: [] },
+};
+
+const FILTERS = [
+  { key: 'top3', label: 'Top 3' },
+  { key: 'lastWeek', label: 'All agents — last week' },
+  { key: 'thisWeek', label: 'All agents — this week (live)' },
+  { key: 'thisMonth', label: 'All agents — this month' },
+];
 
 async function fetchAgents() {
   const res = await fetch('/api/admin/agents');
@@ -12,12 +28,33 @@ async function fetchAgents() {
   return { ok: true, agents: body.agents, performance: body.performance };
 }
 
+function TieredRanking({ ranked, emptyMessage }) {
+  if (ranked.length === 0) return <p>{emptyMessage}</p>;
+  return TIER_ORDER.map((tier) => {
+    const rows = ranked.filter((r) => r.tier === tier);
+    if (rows.length === 0) return null;
+    return (
+      <div key={tier} className={`tier-group tier-group--${tier}`}>
+        <h3>{TIER_LABELS[tier]}</h3>
+        {rows.map((r) => (
+          <div className="tier-row" key={r.email}>
+            <AgentAvatar name={r.name} src={r.profilePictureLink} size={32} />
+            <span className="tier-row-name">{r.name}</span>
+            <span className="tier-row-points">{r.total} pts</span>
+          </div>
+        ))}
+      </div>
+    );
+  });
+}
+
 export default function AdminPage() {
   const [password, setPassword] = useState('');
   const [authed, setAuthed] = useState(false);
   const [checked, setChecked] = useState(false);
   const [agents, setAgents] = useState([]);
-  const [performance, setPerformance] = useState({ weekEnded: null, ranked: [] });
+  const [performance, setPerformance] = useState(DEFAULT_PERFORMANCE);
+  const [filter, setFilter] = useState('top3');
   const [error, setError] = useState('');
   const [copiedEmail, setCopiedEmail] = useState('');
 
@@ -27,7 +64,7 @@ export default function AdminPage() {
       if (cancelled) return;
       if (result.ok) {
         setAgents(result.agents);
-        setPerformance(result.performance || { weekEnded: null, ranked: [] });
+        setPerformance(result.performance || DEFAULT_PERFORMANCE);
         setAuthed(true);
       } else {
         setAuthed(false);
@@ -51,7 +88,7 @@ export default function AdminPage() {
       const result = await fetchAgents();
       if (result.ok) {
         setAgents(result.agents);
-        setPerformance(result.performance || { weekEnded: null, ranked: [] });
+        setPerformance(result.performance || DEFAULT_PERFORMANCE);
         setAuthed(true);
       }
     } else {
@@ -99,26 +136,59 @@ export default function AdminPage() {
       </Head>
 
       <section className="admin-section">
-        <h1>Performance {performance.weekEnded ? `— week ended ${performance.weekEnded}` : ''}</h1>
-        {performance.ranked.length === 0 ? (
-          <p>No completed week yet — check back after the first Monday rollup.</p>
-        ) : (
-          TIER_ORDER.map((tier) => {
-            const rows = performance.ranked.filter((r) => r.tier === tier);
-            if (rows.length === 0) return null;
-            return (
-              <div key={tier} className={`tier-group tier-group--${tier}`}>
-                <h3>{TIER_LABELS[tier]}</h3>
-                {rows.map((r) => (
-                  <div className="tier-row" key={r.email}>
-                    <AgentAvatar name={r.name} src={r.profilePictureLink} size={32} />
-                    <span className="tier-row-name">{r.name}</span>
-                    <span className="tier-row-points">{r.total} pts</span>
-                  </div>
-                ))}
-              </div>
-            );
-          })
+        <h1>Performance</h1>
+        <div className="admin-filter-row">
+          {FILTERS.map((f) => (
+            <button
+              key={f.key}
+              type="button"
+              className={`admin-filter-btn ${filter === f.key ? 'admin-filter-btn--active' : ''}`}
+              onClick={() => setFilter(f.key)}
+            >
+              {f.label}
+            </button>
+          ))}
+        </div>
+
+        {filter === 'top3' && (
+          <Top3Banner top3={performance.top3} weekEnded={performance.weekEnded} />
+        )}
+        {filter === 'lastWeek' && (
+          <>
+            {performance.lastWeek.weekEnded && (
+              <p className="admin-period-label">Week ended {performance.lastWeek.weekEnded}</p>
+            )}
+            <TieredRanking
+              ranked={performance.lastWeek.ranked}
+              emptyMessage="No completed week yet — check back after the first Monday rollup."
+            />
+          </>
+        )}
+        {filter === 'thisWeek' && (
+          <>
+            {performance.thisWeek.start && (
+              <p className="admin-period-label">
+                {performance.thisWeek.start} → {performance.thisWeek.end} (in progress)
+              </p>
+            )}
+            <TieredRanking
+              ranked={performance.thisWeek.ranked}
+              emptyMessage="No activity logged yet this week."
+            />
+          </>
+        )}
+        {filter === 'thisMonth' && (
+          <>
+            {performance.thisMonth.start && (
+              <p className="admin-period-label">
+                {performance.thisMonth.start} → {performance.thisMonth.end} (in progress)
+              </p>
+            )}
+            <TieredRanking
+              ranked={performance.thisMonth.ranked}
+              emptyMessage="No activity logged yet this month."
+            />
+          </>
         )}
       </section>
 

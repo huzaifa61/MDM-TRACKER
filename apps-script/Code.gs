@@ -24,7 +24,9 @@
  * (the form's ID from its edit URL: docs.google.com/forms/d/<THIS_PART>/edit), then re-run
  * createTriggers(). Every submission then automatically adds/updates an AGENTS row - see the
  * Agent Signup Form section. Expect a fresh OAuth consent prompt the first time this runs,
- * since it's the first use of the Drive and Forms services.
+ * since it's the first use of the Drive and Forms services. If any agent's photo was saved
+ * before this comment mentioned lh3.googleusercontent.com, run fixExistingProfilePhotoLinks()
+ * once to upgrade it - old links were not guaranteed to render in every browser.
  *
  * To see a real email land without waiting for a real day/week/month to finish, run
  * sendTestDailyEntryReminder(), sendTestDailyEmail(), sendTestWeeklyEmail(), or
@@ -468,16 +470,48 @@ function findAnswerByTitle_(itemResponses, title) {
   return null;
 }
 
-/** A Drive file-upload answer is a file ID, not a usable image URL - a plain Drive share link
+/**
+ * A Drive file-upload answer is a file ID, not a usable image URL - a plain Drive share link
  * (.../file/d/<id>/view) opens an HTML viewer, not a raw image, so it won't render in an
- * &lt;img&gt; tag. This makes the file link-viewable and builds a direct-embeddable URL instead. */
+ * &lt;img&gt; tag. This makes the file link-viewable and builds a direct-embeddable URL instead.
+ *
+ * Uses the lh3.googleusercontent.com image-CDN form rather than drive.google.com/uc?export=view
+ * - the latter redirects through a "download" endpoint that can intermittently show a virus-scan
+ * or "too many requests" interstitial in real browsers instead of the image, even though it often
+ * succeeds from a plain HTTP client. lh3 is a single direct response, no redirect.
+ */
 function makeDriveImagePublicLink_(fileId) {
   try {
     DriveApp.getFileById(fileId).setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
   } catch (err) {
     Logger.log('Could not set sharing on uploaded profile photo ' + fileId + ': ' + err);
   }
-  return 'https://drive.google.com/uc?export=view&id=' + fileId;
+  return 'https://lh3.googleusercontent.com/d/' + fileId;
+}
+
+/**
+ * One-time fix for agents whose photo link was already saved in the old, less reliable format
+ * before this change. Safe to re-run - it only rewrites cells that still match the old pattern.
+ */
+function fixExistingProfilePhotoLinks() {
+  var sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('AGENTS');
+  var lastRow = sheet.getLastRow();
+  if (lastRow < 2) return;
+
+  var range = sheet.getRange(2, 3, lastRow - 1, 1); // column C: Profile Picture Link
+  var values = range.getValues();
+  var fixed = 0;
+
+  var updated = values.map(function (row) {
+    var link = row[0];
+    var match = typeof link === 'string' && link.match(/drive\.google\.com\/uc\?export=view&id=([^&]+)/);
+    if (!match) return row;
+    fixed += 1;
+    return ['https://lh3.googleusercontent.com/d/' + match[1]];
+  });
+
+  if (fixed > 0) range.setValues(updated);
+  Logger.log('Fixed ' + fixed + ' old-format profile photo link(s).');
 }
 
 /** Adds a new AGENTS row, or updates name/photo for an existing one matched by email
@@ -772,11 +806,12 @@ function emailShell_(title, innerHtml, isTest) {
     '</div>';
 }
 
-function renderTop3SectionHtml_(top3) {
+function renderTop3SectionHtml_(top3, periodLabel) {
+  var label = periodLabel || 'this week';
   if (!top3 || top3.length === 0) {
     return '' +
-      '<h2 style="font-size:15px;margin:0 0 10px;color:#111827;">\u{1F3C6} Top performers this week</h2>' +
-      '<p style="color:#6b7280;font-size:13px;">No activity logged by anyone yet this week.</p>';
+      '<h2 style="font-size:15px;margin:0 0 10px;color:#111827;">\u{1F3C6} Top performers ' + escapeHtml_(label) + '</h2>' +
+      '<p style="color:#6b7280;font-size:13px;">No activity logged by anyone yet ' + escapeHtml_(label) + '.</p>';
   }
   var medals = ['\u{1F947}', '\u{1F948}', '\u{1F949}'];
   var rows = top3.map(function (a, i) {
@@ -788,7 +823,7 @@ function renderTop3SectionHtml_(top3) {
       '</tr>';
   }).join('');
   return '' +
-    '<h2 style="font-size:15px;margin:0 0 10px;color:#111827;">\u{1F3C6} Top performers this week</h2>' +
+    '<h2 style="font-size:15px;margin:0 0 10px;color:#111827;">\u{1F3C6} Top performers ' + escapeHtml_(label) + '</h2>' +
     '<table style="width:100%;border-collapse:collapse;background:#f9fafb;border-radius:8px;">' + rows + '</table>';
 }
 
@@ -887,8 +922,22 @@ function monthlyRollup() {
     return /contact|appointment|conversion/i.test(t.task);
   });
 
+  // Compute every agent's stats for the period once - reused both for their own email and to
+  // build the team-wide monthly leaderboard shared across all of them, so nobody's data is
+  // read from RESPONSE twice.
+  var statsByEmail = {};
   agents.forEach(function (agent) {
-    var stats = buildMonthlyStats_(agent.email, period.start, period.end);
+    statsByEmail[agent.email] = buildMonthlyStats_(agent.email, period.start, period.end);
+  });
+
+  var monthlyTop3 = agents
+    .map(function (a) { return { name: a.name, total: statsByEmail[a.email].grandTotal }; })
+    .filter(function (t) { return t.total > 0; })
+    .sort(function (a, b) { return b.total - a.total; })
+    .slice(0, 3);
+
+  agents.forEach(function (agent) {
+    var stats = statsByEmail[agent.email];
     var prevStats = buildMonthlyStats_(agent.email, prevPeriod.start, prevPeriod.end);
     var baseline = buildTrailingAverage_(agent.email, period.year, period.month, 3);
     var callouts = baseline.monthsCounted > 0 ? buildCallouts_(stats.perTask, baseline.perTaskAvg) : null;
@@ -899,7 +948,7 @@ function monthlyRollup() {
     MailApp.sendEmail({
       to: agent.email,
       subject: 'Your ' + period.label + ' activity summary',
-      htmlBody: renderMonthlyEmailHtml_(agent, stats, prevStats, callouts, conversionSection, period.label, false),
+      htmlBody: renderMonthlyEmailHtml_(agent, stats, prevStats, callouts, conversionSection, period.label, false, monthlyTop3),
     });
   });
 }
@@ -1007,8 +1056,12 @@ function buildConversionSection_(perTask, conversionTasks) {
   return { breakdown: breakdown, conversionRatePct: rate };
 }
 
-function renderMonthlyEmailHtml_(agent, stats, prevStats, callouts, conversionSection, label, isTest) {
+function renderMonthlyEmailHtml_(agent, stats, prevStats, callouts, conversionSection, label, isTest, monthlyTop3) {
   var parts = [];
+  if (monthlyTop3) {
+    parts.push(renderTop3SectionHtml_(monthlyTop3, 'this month'));
+    parts.push('<div style="height:20px;"></div>');
+  }
   parts.push('<p style="margin:0 0 4px;color:#6b7280;font-size:13px;">Hi ' + escapeHtml_(agent.name) + ',</p>');
   parts.push('<p style="margin:0 0 4px;font-size:22px;font-weight:700;color:#111827;">' +
     stats.grandTotal + ' pts <span style="font-size:13px;font-weight:400;color:#6b7280;">total this month</span></p>');
@@ -1074,8 +1127,12 @@ function sendTestMonthlyEmail() {
     couldImprove: [{ task: 'Facebook Post About Business', actual: 3, avg: 8, tip: 'This is a sample tip for testing.' }],
   };
 
+  var fakeMonthlyTop3 = agents.slice(0, 3).map(function (a, i) {
+    return { name: a.name, total: (3 - i) * 15 };
+  });
+
   agents.forEach(function (agent) {
-    var html = renderMonthlyEmailHtml_(agent, fakeStats, fakePrevStats, fakeCallouts, null, 'TEST MONTH', true);
+    var html = renderMonthlyEmailHtml_(agent, fakeStats, fakePrevStats, fakeCallouts, null, 'TEST MONTH', true, fakeMonthlyTop3);
     MailApp.sendEmail({ to: agent.email, subject: '[TEST] Your monthly activity summary', htmlBody: html });
   });
   Logger.log('Test monthly email sent to: ' + agents.map(function (a) { return a.email; }).join(', '));

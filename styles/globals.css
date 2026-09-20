@@ -335,6 +335,38 @@ h2 {
   margin: 6px 0 16px;
 }
 
+.admin-filter-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 10px 0 18px;
+}
+
+/* Extra specificity (parent class + own class) needed to beat the generic ".admin-page button"
+   rule below, which would otherwise force every filter button to the same accent background. */
+.admin-filter-row .admin-filter-btn {
+  padding: 8px 14px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: var(--card-bg);
+  color: var(--foreground);
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.admin-filter-row .admin-filter-btn--active {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--accent-contrast);
+}
+
+.admin-period-label {
+  color: var(--muted);
+  font-size: 0.85rem;
+  margin-bottom: 12px;
+}
+
 /* Performance tiers */
 
 .tier-group {
