@@ -4,7 +4,11 @@ import Link from 'next/link';
 import { fetchAllSheetData } from '@/lib/sheets';
 import { resolveAgentFromToken, normalizeEmail } from '@/lib/tokens';
 import { computeDailyTotal } from '@/lib/points';
-import { computeWeeklyLeaderboard } from '@/lib/leaderboard';
+import {
+  computeWeeklyLeaderboard,
+  computeRangeLeaderboard,
+  previousMonthBounds,
+} from '@/lib/leaderboard';
 import { todayInTZ } from '@/lib/week';
 import { FIXED_RESPONSE_COLUMNS } from '@/lib/sheetSchema';
 import Top3Banner from '@/components/Top3Banner';
@@ -50,6 +54,21 @@ export async function getServerSideProps({ params }) {
     total: r.total,
     profilePictureLink: r.profilePictureLink,
   }));
+  const lastMonth = previousMonthBounds(timeZone);
+  const lastMonthTop3 = computeRangeLeaderboard(
+    data.responseRows,
+    data.header,
+    data.agents,
+    lastMonth.start,
+    lastMonth.end
+  )
+    .filter((r) => r.total > 0)
+    .slice(0, 3)
+    .map((r) => ({
+      name: r.name,
+      total: r.total,
+      profilePictureLink: r.profilePictureLink,
+    }));
 
   const tasks = data.tasks.map((t) => ({ task: t.task, point: t.point, inputType: t.inputType }));
 
@@ -62,6 +81,8 @@ export async function getServerSideProps({ params }) {
       today,
       top3,
       weekEnded: weekEnded || null,
+      lastMonthTop3,
+      lastMonthStart: lastMonth.start,
     },
   };
 }
@@ -75,6 +96,8 @@ export default function EntryPage({
   today,
   top3,
   weekEnded,
+  lastMonthTop3,
+  lastMonthStart,
 }) {
   const [values, setValues] = useState(todayValues || {});
   const [status, setStatus] = useState('idle'); // idle | saving | saved | error
@@ -126,7 +149,12 @@ export default function EntryPage({
       <Head>
         <title>Daily Log — {agent.name}</title>
       </Head>
-      <Top3Banner top3={top3} weekEnded={weekEnded} />
+      <Top3Banner
+        top3={top3}
+        weekEnded={weekEnded}
+        lastMonthTop3={lastMonthTop3}
+        lastMonthStart={lastMonthStart}
+      />
       <Link href={`/entry/${token}/history`} className="entry-profile-link">
         <AgentAvatar name={agent.name} src={agent.profilePictureLink} size={48} />
         <span>

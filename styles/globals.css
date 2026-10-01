@@ -163,6 +163,33 @@ h2 {
   font-size: 0.85rem;
 }
 
+.top3-list--rotating {
+  animation: top3-period-enter 220ms ease-out;
+}
+
+.top3-rotation-label {
+  margin: 14px 0 0;
+  color: var(--muted);
+  font-size: 0.72rem;
+}
+
+@keyframes top3-period-enter {
+  from {
+    opacity: 0;
+    transform: translateX(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .top3-list--rotating {
+    animation: none;
+  }
+}
+
 /* Entry page profile link */
 
 .entry-profile-link {

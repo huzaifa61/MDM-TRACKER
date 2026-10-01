@@ -191,7 +191,12 @@ export default function AdminPage() {
         </div>
 
         {filter === 'top3' && (
-          <Top3Banner top3={performance.top3} weekEnded={performance.weekEnded} />
+          <Top3Banner
+            top3={performance.top3}
+            weekEnded={performance.weekEnded}
+            lastMonthTop3={performance.lastMonth.ranked.filter((r) => r.total > 0).slice(0, 3)}
+            lastMonthStart={performance.lastMonth.start}
+          />
         )}
         {filter === 'lastWeek' && (
           <>
