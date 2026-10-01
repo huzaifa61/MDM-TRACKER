@@ -501,6 +501,41 @@ h2 {
   font-weight: 600;
 }
 
+.admin-agent-identity {
+  min-width: 0;
+  flex: 1;
+}
+
+.admin-agent-name-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.admin-agent-edit-link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  flex-shrink: 0;
+  border: 1px solid var(--border);
+  border-radius: 50%;
+  background: var(--background);
+  color: var(--accent);
+  font-size: 1rem;
+  font-weight: 700;
+  line-height: 1;
+  text-decoration: none;
+}
+
+.admin-agent-edit-link:hover,
+.admin-agent-edit-link:focus-visible {
+  border-color: var(--accent);
+  background: var(--accent);
+  color: var(--accent-contrast);
+}
+
 .admin-agent-email {
   color: var(--muted);
   font-size: 0.85rem;

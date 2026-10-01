@@ -7,6 +7,12 @@ import { FIXED_RESPONSE_COLUMNS } from '@/lib/sheetSchema';
 import { currentMonthBounds, previousMonthBounds } from '@/lib/leaderboard';
 import AgentAvatar from '@/components/AgentAvatar';
 
+function isHiddenHistoryColumn(column) {
+  const normalized = String(column || '').trim().toLowerCase();
+  return normalized.includes('choose your enemies wisely')
+    || normalized.includes('post a minimum of once per day about your business on facebook');
+}
+
 export async function getServerSideProps({ params }) {
   const { token } = params;
 
@@ -24,7 +30,9 @@ export async function getServerSideProps({ params }) {
   }
 
   const targetEmail = normalizeEmail(agent.email);
-  const taskColumns = data.header.filter((col) => !FIXED_RESPONSE_COLUMNS.includes(col));
+  const taskColumns = data.header.filter(
+    (col) => !FIXED_RESPONSE_COLUMNS.includes(col) && !isHiddenHistoryColumn(col)
+  );
   const totalIdx = data.header.indexOf('Daily Totals');
 
   const entries = data.responseRows
