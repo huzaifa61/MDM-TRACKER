@@ -287,8 +287,20 @@ export default function AdminPage() {
             <div className="admin-agent-card" key={a.email}>
               <div className="admin-agent-card-header">
                 <AgentAvatar name={a.name} src={a.profilePictureLink} size={40} />
-                <div>
-                  <div className="admin-agent-name">{a.name}</div>
+                <div className="admin-agent-identity">
+                  <div className="admin-agent-name-row">
+                    <div className="admin-agent-name">{a.name}</div>
+                    <a
+                      className="admin-agent-edit-link"
+                      href={a.link}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      aria-label={`Open ${a.name || a.email}'s entry form in a new tab`}
+                      title="Open entry form in a new tab"
+                    >
+                      ✎
+                    </a>
+                  </div>
                   <div className="admin-agent-email">{a.email}</div>
                 </div>
               </div>
