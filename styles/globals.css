@@ -367,6 +367,43 @@ h2 {
   margin-bottom: 12px;
 }
 
+.admin-date-range-form {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 10px;
+  margin: 4px 0 14px;
+}
+
+.admin-date-range-form label {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  color: var(--muted);
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+
+.admin-date-range-form input {
+  min-height: 38px;
+  padding: 7px 10px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--card-bg);
+  color: var(--foreground);
+  font: inherit;
+}
+
+.admin-date-range-form button {
+  min-height: 38px;
+  padding: 8px 16px;
+}
+
+.admin-date-range-form button:disabled {
+  cursor: wait;
+  opacity: 0.65;
+}
+
 /* Performance tiers */
 
 .tier-group {

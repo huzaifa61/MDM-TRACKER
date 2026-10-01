@@ -12,6 +12,8 @@ const DEFAULT_PERFORMANCE = {
   lastWeek: { weekEnded: null, ranked: [] },
   thisWeek: { start: null, end: null, ranked: [] },
   thisMonth: { start: null, end: null, ranked: [] },
+  lastMonth: { start: null, end: null, ranked: [] },
+  customRange: { start: null, end: null, ranked: [] },
 };
 
 const FILTERS = [
@@ -19,10 +21,15 @@ const FILTERS = [
   { key: 'lastWeek', label: 'All agents — last week' },
   { key: 'thisWeek', label: 'All agents — this week (live)' },
   { key: 'thisMonth', label: 'All agents — this month' },
+  { key: 'lastMonth', label: 'All agents — last month' },
+  { key: 'customRange', label: 'Custom date range' },
 ];
 
-async function fetchAgents() {
-  const res = await fetch('/api/admin/agents');
+async function fetchAgents(start, end) {
+  const query = start && end
+    ? `?start=${encodeURIComponent(start)}&end=${encodeURIComponent(end)}`
+    : '';
+  const res = await fetch(`/api/admin/agents${query}`);
   if (!res.ok) return { ok: false };
   const body = await res.json();
   return { ok: true, agents: body.agents, performance: body.performance };
@@ -57,6 +64,10 @@ export default function AdminPage() {
   const [filter, setFilter] = useState('top3');
   const [error, setError] = useState('');
   const [copiedEmail, setCopiedEmail] = useState('');
+  const [customStart, setCustomStart] = useState('');
+  const [customEnd, setCustomEnd] = useState('');
+  const [rangeLoading, setRangeLoading] = useState(false);
+  const [rangeError, setRangeError] = useState('');
 
   useEffect(() => {
     let cancelled = false;
@@ -104,6 +115,35 @@ export default function AdminPage() {
     } catch {
       // Clipboard API unavailable (e.g. insecure context) - the link is still selectable text.
     }
+  }
+
+  async function loadCustomRange(e) {
+    e.preventDefault();
+    setRangeError('');
+    if (!customStart || !customEnd) {
+      setRangeError('Choose both a From date and a To date.');
+      return;
+    }
+    if (customStart > customEnd) {
+      setRangeError('The From date must be before or equal to the To date.');
+      return;
+    }
+
+    setRangeLoading(true);
+    let result;
+    try {
+      result = await fetchAgents(customStart, customEnd);
+    } catch {
+      result = { ok: false };
+    } finally {
+      setRangeLoading(false);
+    }
+    if (!result.ok) {
+      setRangeError('Could not load that date range. Please try again.');
+      return;
+    }
+    setAgents(result.agents);
+    setPerformance(result.performance || DEFAULT_PERFORMANCE);
   }
 
   if (!checked) return null;
@@ -188,6 +228,48 @@ export default function AdminPage() {
               ranked={performance.thisMonth.ranked}
               emptyMessage="No activity logged yet this month."
             />
+          </>
+        )}
+        {filter === 'lastMonth' && (
+          <>
+            {performance.lastMonth.start && (
+              <p className="admin-period-label">
+                {performance.lastMonth.start} → {performance.lastMonth.end}
+              </p>
+            )}
+            <TieredRanking
+              ranked={performance.lastMonth.ranked}
+              emptyMessage="No activity was logged last month."
+            />
+          </>
+        )}
+        {filter === 'customRange' && (
+          <>
+            <form className="admin-date-range-form" onSubmit={loadCustomRange}>
+              <label>
+                From
+                <input type="date" value={customStart} onChange={(e) => setCustomStart(e.target.value)} />
+              </label>
+              <label>
+                To
+                <input type="date" value={customEnd} onChange={(e) => setCustomEnd(e.target.value)} />
+              </label>
+              <button type="submit" disabled={rangeLoading}>
+                {rangeLoading ? 'Loading…' : 'Apply'}
+              </button>
+            </form>
+            {rangeError && <p className="admin-error">{rangeError}</p>}
+            {performance.customRange.start && (
+              <>
+                <p className="admin-period-label">
+                  {performance.customRange.start} → {performance.customRange.end}
+                </p>
+                <TieredRanking
+                  ranked={performance.customRange.ranked}
+                  emptyMessage="No activity was logged in this date range."
+                />
+              </>
+            )}
           </>
         )}
       </section>

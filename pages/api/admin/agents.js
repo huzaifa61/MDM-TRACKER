@@ -6,7 +6,17 @@ import {
   computeRangeLeaderboard,
   currentIsoWeekBounds,
   currentMonthBounds,
+  previousMonthBounds,
 } from '@/lib/leaderboard';
+
+function isValidIsoDate(value) {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value || '')) return false;
+  const [year, month, day] = value.split('-').map(Number);
+  const parsed = new Date(Date.UTC(year, month - 1, day));
+  return parsed.getUTCFullYear() === year
+    && parsed.getUTCMonth() === month - 1
+    && parsed.getUTCDate() === day;
+}
 
 export default async function handler(req, res) {
   if (!isAdminRequest(req)) {
@@ -44,6 +54,27 @@ export default async function handler(req, res) {
     ranked: computeRangeLeaderboard(data.responseRows, data.header, data.agents, thisMonthBounds.start, thisMonthBounds.end),
   };
 
+  const lastMonthBounds = previousMonthBounds(timeZone);
+  const lastMonth = {
+    start: lastMonthBounds.start,
+    end: lastMonthBounds.end,
+    ranked: computeRangeLeaderboard(data.responseRows, data.header, data.agents, lastMonthBounds.start, lastMonthBounds.end),
+  };
+
+  const requestedStart = Array.isArray(req.query.start) ? req.query.start[0] : req.query.start;
+  const requestedEnd = Array.isArray(req.query.end) ? req.query.end[0] : req.query.end;
+  let customRange = { start: null, end: null, ranked: [] };
+  if (requestedStart || requestedEnd) {
+    if (!isValidIsoDate(requestedStart) || !isValidIsoDate(requestedEnd) || requestedStart > requestedEnd) {
+      return res.status(400).json({ error: 'invalid_date_range' });
+    }
+    customRange = {
+      start: requestedStart,
+      end: requestedEnd,
+      ranked: computeRangeLeaderboard(data.responseRows, data.header, data.agents, requestedStart, requestedEnd),
+    };
+  }
+
   return res.status(200).json({
     agents,
     performance: {
@@ -52,6 +83,8 @@ export default async function handler(req, res) {
       lastWeek,
       thisWeek,
       thisMonth,
+      lastMonth,
+      customRange,
     },
   });
 }
