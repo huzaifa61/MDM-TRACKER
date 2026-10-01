@@ -21,7 +21,7 @@ export default function Top3Banner({ top3, weekEnded, lastMonthTop3 = [], lastMo
     if (!hasWeek || !hasLastMonth) return undefined;
     const timer = window.setInterval(() => {
       setShowLastMonth((current) => !current);
-    }, 1000);
+    }, 5000);
     return () => window.clearInterval(timer);
   }, [hasWeek, hasLastMonth]);
 
@@ -55,7 +55,7 @@ export default function Top3Banner({ top3, weekEnded, lastMonthTop3 = [], lastMo
         ))}
       </ol>
       {hasWeek && hasLastMonth && (
-        <p className="top3-rotation-label">Showing {showingMonth ? 'last month' : 'last completed week'} · changes every second</p>
+        <p className="top3-rotation-label">Showing {showingMonth ? 'last month' : 'last completed week'} · changes every 5 seconds</p>
       )}
     </div>
   );
