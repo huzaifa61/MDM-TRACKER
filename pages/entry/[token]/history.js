@@ -1,8 +1,10 @@
+import { useMemo, useState } from 'react';
 import Head from 'next/head';
 import Link from 'next/link';
 import { fetchAllSheetData } from '@/lib/sheets';
 import { resolveAgentFromToken, normalizeEmail } from '@/lib/tokens';
 import { FIXED_RESPONSE_COLUMNS } from '@/lib/sheetSchema';
+import { currentMonthBounds, previousMonthBounds } from '@/lib/leaderboard';
 import AgentAvatar from '@/components/AgentAvatar';
 
 export async function getServerSideProps({ params }) {
@@ -43,6 +45,7 @@ export async function getServerSideProps({ params }) {
     .sort((a, b) => (a.date < b.date ? 1 : -1)); // newest first
 
   const lifetimeTotal = entries.reduce((sum, e) => sum + e.dailyTotal, 0);
+  const timeZone = process.env.APP_TIMEZONE || 'America/Edmonton';
 
   return {
     props: {
@@ -51,11 +54,68 @@ export async function getServerSideProps({ params }) {
       taskColumns,
       entries,
       lifetimeTotal,
+      periods: {
+        thisMonth: currentMonthBounds(timeZone),
+        lastMonth: previousMonthBounds(timeZone),
+      },
     },
   };
 }
 
-export default function HistoryPage({ error, agent, token, taskColumns, entries, lifetimeTotal }) {
+const HISTORY_FILTERS = [
+  { key: 'all', label: 'All history' },
+  { key: 'thisMonth', label: 'This month' },
+  { key: 'lastMonth', label: 'Last month' },
+  { key: 'custom', label: 'Custom dates' },
+];
+
+export default function HistoryPage({
+  error,
+  agent,
+  token,
+  taskColumns = [],
+  entries = [],
+  lifetimeTotal = 0,
+  periods = {},
+}) {
+  const [filter, setFilter] = useState('all');
+  const [customStart, setCustomStart] = useState('');
+  const [customEnd, setCustomEnd] = useState('');
+  const [customRange, setCustomRange] = useState(null);
+  const [rangeError, setRangeError] = useState('');
+
+  const activeRange = filter === 'thisMonth'
+    ? periods?.thisMonth
+    : filter === 'lastMonth'
+      ? periods?.lastMonth
+      : filter === 'custom'
+        ? customRange
+        : null;
+
+  const visibleEntries = useMemo(() => {
+    if (!activeRange) return filter === 'custom' ? [] : entries;
+    return entries.filter((entry) => entry.date >= activeRange.start && entry.date <= activeRange.end);
+  }, [activeRange, entries, filter]);
+
+  const visibleTotal = useMemo(
+    () => visibleEntries.reduce((sum, entry) => sum + entry.dailyTotal, 0),
+    [visibleEntries]
+  );
+
+  function applyCustomRange(e) {
+    e.preventDefault();
+    setRangeError('');
+    if (!customStart || !customEnd) {
+      setRangeError('Choose both a From date and a To date.');
+      return;
+    }
+    if (customStart > customEnd) {
+      setRangeError('The From date must be before or equal to the To date.');
+      return;
+    }
+    setCustomRange({ start: customStart, end: customEnd });
+  }
+
   if (error) {
     const message =
       error === 'sheet_unavailable'
@@ -87,8 +147,48 @@ export default function HistoryPage({ error, agent, token, taskColumns, entries,
         </div>
       </div>
 
-      {entries.length === 0 ? (
-        <p>No activity logged yet — it&apos;ll show up here as soon as you save your first day.</p>
+      <div className="history-filter-row">
+        {HISTORY_FILTERS.map((item) => (
+          <button
+            key={item.key}
+            type="button"
+            className={`history-filter-btn ${filter === item.key ? 'history-filter-btn--active' : ''}`}
+            onClick={() => {
+              setFilter(item.key);
+              setRangeError('');
+            }}
+          >
+            {item.label}
+          </button>
+        ))}
+      </div>
+
+      {filter === 'custom' && (
+        <form className="history-date-range-form" onSubmit={applyCustomRange}>
+          <label>
+            From
+            <input type="date" value={customStart} onChange={(e) => setCustomStart(e.target.value)} />
+          </label>
+          <label>
+            To
+            <input type="date" value={customEnd} onChange={(e) => setCustomEnd(e.target.value)} />
+          </label>
+          <button type="submit">Apply</button>
+        </form>
+      )}
+      {rangeError && <p className="history-range-error">{rangeError}</p>}
+
+      {activeRange && (
+        <p className="history-period-label">{activeRange.start} → {activeRange.end}</p>
+      )}
+      <p className="history-view-total">
+        {filter === 'all' ? lifetimeTotal : visibleTotal} pts · {visibleEntries.length} day{visibleEntries.length === 1 ? '' : 's'} logged
+      </p>
+
+      {visibleEntries.length === 0 ? (
+        <p>{filter === 'custom' && !customRange
+          ? 'Choose a From and To date, then select Apply.'
+          : 'No activity was logged in this period.'}</p>
       ) : (
         <div className="history-table-wrap">
           <table className="history-table">
@@ -102,7 +202,7 @@ export default function HistoryPage({ error, agent, token, taskColumns, entries,
               </tr>
             </thead>
             <tbody>
-              {entries.map((e) => (
+              {visibleEntries.map((e) => (
                 <tr key={e.date}>
                   <td>{e.date}</td>
                   {taskColumns.map((col) => (

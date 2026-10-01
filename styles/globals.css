@@ -529,6 +529,86 @@ h2 {
   margin-top: 2px;
 }
 
+.history-filter-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 0 0 16px;
+}
+
+.history-filter-btn {
+  padding: 8px 14px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--card-bg);
+  color: var(--foreground);
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.history-filter-btn--active {
+  border-color: var(--accent);
+  background: var(--accent);
+  color: var(--accent-contrast);
+}
+
+.history-date-range-form {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 10px;
+  margin-bottom: 14px;
+}
+
+.history-date-range-form label {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  color: var(--muted);
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+
+.history-date-range-form input {
+  min-height: 38px;
+  padding: 7px 10px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--card-bg);
+  color: var(--foreground);
+  font: inherit;
+}
+
+.history-date-range-form button {
+  min-height: 38px;
+  padding: 8px 16px;
+  border: 0;
+  border-radius: 8px;
+  background: var(--accent);
+  color: var(--accent-contrast);
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.history-period-label,
+.history-view-total {
+  color: var(--muted);
+  font-size: 0.85rem;
+  margin: 5px 0 12px;
+}
+
+.history-view-total {
+  color: var(--foreground);
+  font-weight: 700;
+}
+
+.history-range-error {
+  color: var(--danger);
+  font-size: 0.85rem;
+  margin: 0 0 12px;
+}
+
 .history-table-wrap {
   overflow-x: auto;
   border: 1px solid var(--border);
