@@ -167,12 +167,6 @@ h2 {
   animation: top3-period-enter 220ms ease-out;
 }
 
-.top3-rotation-label {
-  margin: 14px 0 0;
-  color: var(--muted);
-  font-size: 0.72rem;
-}
-
 @keyframes top3-period-enter {
   from {
     opacity: 0;

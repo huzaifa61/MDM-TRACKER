@@ -54,9 +54,6 @@ export default function Top3Banner({ top3, weekEnded, lastMonthTop3 = [], lastMo
           </li>
         ))}
       </ol>
-      {hasWeek && hasLastMonth && (
-        <p className="top3-rotation-label">Showing {showingMonth ? 'last month' : 'last completed week'} · changes every 5 seconds</p>
-      )}
     </div>
   );
 }
